@@ -1,0 +1,19 @@
+{
+    "version": 2,
+    "rewrites": [
+        {
+            "source": "/(.*)",
+            "destination": "/api/index.js"
+        }
+    ],
+    "crons": [
+        {
+            "path": "/api/notifications/cron/schedules",
+            "schedule": "0 1 * * *"
+        },
+        {
+            "path": "/api/notifications/cron/immunizations",
+            "schedule": "0 2 * * *"
+        }
+    ]
+}

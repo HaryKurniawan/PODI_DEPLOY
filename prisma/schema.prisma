@@ -1,0 +1,539 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================
+// MODEL PENGGUNA & DATA KELUARGA
+// ============================================
+
+model Pengguna {
+  id                  String   @id @default(uuid())
+  nama                String
+  email               String   @unique
+  password            String
+  role                Role     @default(PENGGUNA)
+  sudahLengkapiProfil Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Verifikasi email
+  emailTerverifikasi  Boolean  @default(false)
+  tokenVerifikasiEmail    String?
+  kadaluarsaVerifikasiEmail  DateTime?
+
+  // Reset password
+  tokenResetPassword  String?
+  kadaluarsaResetPassword DateTime?
+
+  // Relasi
+  dataIbu            DataIbu?
+  dataSuami          DataSuami?
+  dataAnak           DataAnak[]
+  pendaftaranPosyandu PendaftaranPosyandu[]
+  permintaanPerubahanData PermintaanPerubahanData[]
+  tokenFcm           TokenFcm[]
+  notifikasi         Notifikasi[]
+  artikelTersimpan   ArtikelTersimpan[]
+  catatanKB          CatatanKBIbu[]
+
+  @@map("pengguna")
+}
+
+model TokenFcm {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  penggunaId    String
+  pengguna      Pengguna     @relation(fields: [penggunaId], references: [id], onDelete: Cascade)
+  device    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("token_fcm")
+}
+
+model DataIbu {
+  id              String   @id @default(uuid())
+  penggunaId      String   @unique
+  pengguna        Pengguna @relation(fields: [penggunaId], references: [id], onDelete: Cascade)
+
+  namaLengkap     String
+  noTelepon       String
+  nik             String   @unique
+  tempatLahir     String
+  tanggalLahir    DateTime
+  pendidikan      String
+  pekerjaan       String
+  golonganDarah   String
+  jkn             String
+  fasilitasTK1    String
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("data_ibu")
+}
+
+model DataSuami {
+  id              String   @id @default(uuid())
+  penggunaId      String   @unique
+  pengguna        Pengguna @relation(fields: [penggunaId], references: [id], onDelete: Cascade)
+
+  namaLengkap     String
+  nik             String   @unique
+  pekerjaan       String
+  noTelepon       String
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("data_suami")
+}
+
+model DataAnak {
+  id                String   @id @default(uuid())
+  penggunaId        String
+  pengguna          Pengguna @relation(fields: [penggunaId], references: [id], onDelete: Cascade)
+
+  namaLengkap       String
+  nik               String?  // Opsional - beberapa anak belum memiliki NIK
+  noAkta            String?  // Opsional - beberapa anak belum memiliki akta
+  urutanAnak        Int
+  golonganDarah     String
+  jenisKelamin      String   @default("L") // "L" untuk Laki-laki, "P" untuk Perempuan
+  tempatLahir       String
+  tanggalLahir      DateTime
+
+  // Relasi
+  pemeriksaan       PemeriksaanAnak[]
+  pendaftaranPosyandu PendaftaranPosyandu[]
+  imunisasi         ImunisasiAnak[]
+  skriningKPSP      SkriningKPSP[]
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("data_anak")
+}
+
+// ============================================
+// MODEL JADWAL & PENDAFTARAN POSYANDU
+// ============================================
+
+model JadwalPosyandu {
+  id            String   @id @default(uuid())
+  tanggalJadwal DateTime
+  lokasi        String
+  deskripsi     String?
+  aktif         Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relasi
+  pemeriksaan       PemeriksaanAnak[]
+  pendaftaran       PendaftaranPosyandu[]
+  imunisasi         ImunisasiAnak[]
+  catatanKB         CatatanKBIbu[]
+
+  @@map("jadwal_posyandu")
+}
+
+model PendaftaranPosyandu {
+  id          String   @id @default(uuid())
+  jadwalId    String
+  jadwal      JadwalPosyandu @relation(fields: [jadwalId], references: [id], onDelete: Cascade)
+  anakId      String
+  anak        DataAnak @relation(fields: [anakId], references: [id], onDelete: Cascade)
+  penggunaId  String
+  pengguna    Pengguna @relation(fields: [penggunaId], references: [id], onDelete: Cascade)
+
+  status           StatusPendaftaran @default(TERDAFTAR)
+  terdaftarPada    DateTime @default(now())
+  catatan          String?
+  pengingatTerkirim Boolean  @default(false)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([jadwalId, anakId])
+  @@map("pendaftaran_posyandu")
+}
+
+// ============================================
+// MODEL PEMERIKSAAN
+// ============================================
+
+model PemeriksaanAnak {
+  id                String   @id @default(uuid())
+  anakId            String
+  anak              DataAnak @relation(fields: [anakId], references: [id], onDelete: Cascade)
+  jadwalId          String
+  jadwal            JadwalPosyandu @relation(fields: [jadwalId], references: [id], onDelete: Cascade)
+
+  tanggalPemeriksaan DateTime
+  beratBadan        Float
+  tinggiBadan       Float
+  lingkarKepala     Float
+  lingkarLengan     Float
+  imunisasi         String?
+  catatan           String?
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("pemeriksaan_anak")
+}
+
+// ============================================
+// MODEL IMUNISASI
+// ============================================
+
+model TemplateImunisasi {
+  id              String   @id @default(uuid())
+  rentangUsia     String
+  usiaInBulan     Int
+  deskripsi       String?
+  aktif           Boolean  @default(true)
+
+  // Relasi
+  vaksin          VaksinImunisasi[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("template_imunisasi")
+}
+
+model VaksinImunisasi {
+  id              String   @id @default(uuid())
+  templateId      String
+  template        TemplateImunisasi @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  nama            String
+  dosis           String
+  deskripsi       String
+  usiaRekomendasi String
+
+  // Relasi
+  imunisasiAnak   ImunisasiAnak[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("vaksin_imunisasi")
+}
+
+model ImunisasiAnak {
+  id              String   @id @default(uuid())
+  anakId          String
+  anak            DataAnak @relation(fields: [anakId], references: [id], onDelete: Cascade)
+
+  vaksinId        String
+  vaksin          VaksinImunisasi @relation(fields: [vaksinId], references: [id], onDelete: Restrict)
+
+  jadwalId        String?
+  jadwal          JadwalPosyandu? @relation(fields: [jadwalId], references: [id], onDelete: SetNull)
+
+  tanggalVaksinasi DateTime
+  status          StatusVaksinasi @default(MENUNGGU)
+  catatan         String?
+  diberikanOleh   String?
+  pengingatTerkirim Boolean  @default(false)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([anakId, vaksinId, tanggalVaksinasi])
+  @@map("imunisasi_anak")
+}
+
+// ============================================
+// MODEL KPSP (Kuesioner Pra Skrining Perkembangan)
+// ============================================
+
+model AreaPerkembangan {
+  id          String   @id @default(uuid())
+  nama        String   @unique
+  deskripsi   String?
+  aktif       Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("area_perkembangan")
+}
+
+model KategoriUsiaKPSP {
+  id              String   @id @default(uuid())
+  kode            String   @unique
+  nama            String
+  usiaMinBulan    Int
+  usiaMaxBulan    Int
+  deskripsi       String?
+  aktif           Boolean  @default(true)
+
+  // Relasi
+  pertanyaan      PertanyaanKPSP[]
+  skrining        SkriningKPSP[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("kategori_usia_kpsp")
+}
+
+model PertanyaanKPSP {
+  id              String   @id @default(uuid())
+  kategoriId      String
+  kategori        KategoriUsiaKPSP @relation(fields: [kategoriId], references: [id], onDelete: Cascade)
+
+  nomorPertanyaan Int
+  teksPertanyaan  String
+  areaPerkembangan String
+  instruksi       String?
+
+  // Relasi
+  jawaban         JawabanKPSP[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([kategoriId, nomorPertanyaan])
+  @@map("pertanyaan_kpsp")
+}
+
+model SkriningKPSP {
+  id              String   @id @default(uuid())
+  anakId          String
+  anak            DataAnak @relation(fields: [anakId], references: [id], onDelete: Cascade)
+  kategoriId      String
+  kategori        KategoriUsiaKPSP @relation(fields: [kategoriId], references: [id], onDelete: Restrict)
+
+  tanggalSkrining DateTime @default(now())
+  usiaSaatSkrining Int
+  totalYa         Int
+  totalTidak      Int
+  hasil           HasilKPSP
+  catatan         String?
+  rekomendasiTindakan String?
+
+  // Relasi
+  jawaban         JawabanKPSP[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("skrining_kpsp")
+}
+
+model JawabanKPSP {
+  id              String   @id @default(uuid())
+  skriningId      String
+  skrining        SkriningKPSP @relation(fields: [skriningId], references: [id], onDelete: Cascade)
+  pertanyaanId    String
+  pertanyaan      PertanyaanKPSP @relation(fields: [pertanyaanId], references: [id], onDelete: Restrict)
+
+  jawaban         Boolean
+
+  createdAt       DateTime @default(now())
+
+  @@unique([skriningId, pertanyaanId])
+  @@map("jawaban_kpsp")
+}
+
+enum HasilKPSP {
+  SESUAI
+  MERAGUKAN
+  PENYIMPANGAN
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum Role {
+  PENGGUNA
+  ADMIN
+}
+
+enum StatusPendaftaran {
+  TERDAFTAR
+  HADIR
+  DIBATALKAN
+}
+
+enum StatusVaksinasi {
+  MENUNGGU
+  SELESAI
+  TERLEWAT
+  DITUNDA
+}
+
+enum StatusPerubahanData {
+  MENUNGGU
+  DISETUJUI
+  DITOLAK
+}
+
+enum TipeNotifikasi {
+  PENGUMUMAN
+  PENGINGAT
+  INFORMASI
+  KESEHATAN
+}
+
+enum TipePerubahanData {
+  IBU
+  SUAMI
+  ANAK
+}
+
+enum StatusKB {
+  AKTIF
+  TIDAK_AKTIF
+}
+
+// ============================================
+// MODEL NOTIFIKASI
+// ============================================
+
+model Notifikasi {
+  id          String   @id @default(uuid())
+  penggunaId  String
+  pengguna    Pengguna @relation(fields: [penggunaId], references: [id], onDelete: Cascade)
+
+  judul       String
+  pesan       String
+  tipe        TipeNotifikasi @default(INFORMASI)
+  sudahDibaca Boolean  @default(false)
+
+  // Untuk linking ke resource tertentu
+  tipeResource String?
+  resourceId   String?
+
+  createdAt   DateTime @default(now())
+
+  @@map("notifikasi")
+}
+
+// ============================================
+// MODEL PERMINTAAN PERUBAHAN DATA (Admin Approval)
+// ============================================
+
+model PermintaanPerubahanData {
+  id              String   @id @default(uuid())
+  penggunaId      String
+  pengguna        Pengguna @relation(fields: [penggunaId], references: [id], onDelete: Cascade)
+
+  tipeTarget      TipePerubahanData
+  targetId        String
+
+  dataLama        Json
+  dataBaru        Json
+  fieldBerubah    String[]
+
+  status          StatusPerubahanData @default(MENUNGGU)
+  direviewOleh    String?
+  direviewPada    DateTime?
+  catatanReview   String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("permintaan_perubahan_data")
+}
+
+// ============================================
+// MODEL KONTEN EDUKASI
+// ============================================
+
+model KategoriEdukasi {
+  id          String   @id @default(uuid())
+  nama        String   @unique
+  slug        String   @unique
+  ikon        String?
+  warna       String?
+  deskripsi   String?
+  urutan      Int      @default(0)
+  aktif       Boolean  @default(true)
+
+  artikel     ArtikelEdukasi[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("kategori_edukasi")
+}
+
+model ArtikelEdukasi {
+  id          String   @id @default(uuid())
+  kategoriId  String
+  kategori    KategoriEdukasi @relation(fields: [kategoriId], references: [id], onDelete: Cascade)
+
+  judul       String
+  slug        String   @unique
+  konten      String   @db.Text
+  ringkasan   String?
+  thumbnail   String?
+  tipe        TipeArtikel @default(ARTIKEL)
+  durasi      String?
+
+  dipublikasikan Boolean  @default(false)
+  dipublikasikanPada DateTime?
+  jumlahDilihat   Int      @default(0)
+  unggulan    Boolean  @default(false)
+
+  tersimpanOleh ArtikelTersimpan[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("artikel_edukasi")
+}
+
+model ArtikelTersimpan {
+  id          String   @id @default(uuid())
+  penggunaId  String
+  pengguna    Pengguna @relation(fields: [penggunaId], references: [id], onDelete: Cascade)
+  artikelId   String
+  artikel     ArtikelEdukasi @relation(fields: [artikelId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+
+  @@unique([penggunaId, artikelId])
+  @@map("artikel_tersimpan")
+}
+
+enum TipeArtikel {
+  ARTIKEL
+  VIDEO
+}
+
+// ============================================
+// MODEL CATATAN KB (KELUARGA BERENCANA) IBU
+// ============================================
+
+model CatatanKBIbu {
+  id              String   @id @default(uuid())
+  penggunaId      String
+  pengguna        Pengguna @relation(fields: [penggunaId], references: [id], onDelete: Cascade)
+
+  jadwalId        String?
+  jadwal          JadwalPosyandu? @relation(fields: [jadwalId], references: [id], onDelete: SetNull)
+
+  metode          String
+  tanggalMulai    DateTime
+  status          StatusKB @default(AKTIF)
+  catatan         String?
+  dicatatOleh     String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("catatan_kb_ibu")
+}
