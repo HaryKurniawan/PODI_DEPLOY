@@ -1,5 +1,7 @@
-const express = require('express');
 const dotenv = require('dotenv');
+dotenv.config();
+
+const express = require('express');
 const cors = require('cors');
 const authRoutes = require('./routes/authRoutes');
 const familyDataRoutes = require('./routes/familyDataRoutes');
@@ -13,8 +15,6 @@ const educationRoutes = require('./routes/educationRoutes');
 const kbRoutes = require('./routes/kbRoutes');
 const prisma = require('./config/prisma');
 const { validateApiKey } = require('./middleware/apiKeyMiddleware');
-
-dotenv.config();
 
 const app = express();
 

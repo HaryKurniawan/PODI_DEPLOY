@@ -1,14 +1,9 @@
 const prisma = require('../../config/prisma');
-const admin = require('firebase-admin');
+const { getFirebaseAdmin } = require('../../config/firebase');
 const generateToken = require('./utils/generateToken');
 
-// Initialize Firebase Admin if not already initialized
-if (!admin.apps.length) {
-    const serviceAccount = require('../../../firebase.json');
-    admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
-    });
-}
+// Use the firebase admin instance from config
+const admin = getFirebaseAdmin();
 
 /**
  * Google Login - Only for registered users
