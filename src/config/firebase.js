@@ -4,6 +4,12 @@ const admin = require('firebase-admin');
 // Initialize Firebase Admin if not already initialized
 const initializeFirebase = () => {
     if (admin.apps.length === 0) {
+        // Check if required env vars exist to prevent crash in serverless
+        if (!process.env.FIREBASE_PROJECT_ID || !process.env.FIREBASE_CLIENT_EMAIL || !process.env.FIREBASE_PRIVATE_KEY) {
+            console.warn('⚠️ Skipping Firebase initialization: Missing environment variables');
+            return null;
+        }
+
         try {
             admin.initializeApp({
                 credential: admin.credential.cert({

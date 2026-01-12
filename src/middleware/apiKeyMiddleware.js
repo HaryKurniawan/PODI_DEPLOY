@@ -7,53 +7,59 @@ const generateApiKey = () => {
 
 // Middleware untuk validasi API key
 const validateApiKey = (req, res, next) => {
+  // Allow Vercel Cron requests if they have valid CRON_SECRET
+  const authHeader = req.headers.authorization;
+  if (authHeader === `Bearer ${process.env.CRON_SECRET}` && process.env.NODE_ENV === 'production') {
+    return next();
+  }
+
   const apiKey = req.headers['x-api-key'];
-  
+
   if (!apiKey) {
-    return res.status(401).json({ 
+    return res.status(401).json({
       success: false,
-      message: 'API key is required. Please provide x-api-key in headers.' 
+      message: 'API key is required. Please provide x-api-key in headers.'
     });
   }
-  
+
   // Validasi dengan API key dari environment variable
   if (apiKey !== process.env.API_KEY) {
-    return res.status(403).json({ 
+    return res.status(403).json({
       success: false,
-      message: 'Invalid API key.' 
+      message: 'Invalid API key.'
     });
   }
-  
+
   next();
 };
 
 // Optional: Middleware untuk multiple API keys (jika butuh beberapa key)
 const validateMultipleApiKeys = (req, res, next) => {
   const apiKey = req.headers['x-api-key'];
-  
+
   if (!apiKey) {
-    return res.status(401).json({ 
+    return res.status(401).json({
       success: false,
-      message: 'API key is required.' 
+      message: 'API key is required.'
     });
   }
-  
+
   // Split multiple keys dari .env dengan koma
   const validKeys = process.env.API_KEYS?.split(',') || [];
-  
+
   if (!validKeys.includes(apiKey)) {
-    return res.status(403).json({ 
+    return res.status(403).json({
       success: false,
-      message: 'Invalid API key.' 
+      message: 'Invalid API key.'
     });
   }
-  
+
   next();
 };
 
-module.exports = { 
-  validateApiKey, 
+module.exports = {
+  validateApiKey,
   validateMultipleApiKeys,
-  generateApiKey 
+  generateApiKey
 };
 
